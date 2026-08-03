@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { apiErrorMessage } from "../services/api";
 import "../styles/Login.css";
+import { GoogleLogin } from "@react-oauth/google";
 
 // Steps: "login" | "sendotp" | "verifyotp" | "resetpassword"
 export default function Login() {
@@ -116,7 +117,7 @@ export default function Login() {
       setSuccess(data.message || "Password reset successfully.");
       setTimeout(() => {
         setStep("login");
-        setFpEmail(""); setOtp(["","","","","",""]); setNewPassword(""); setConfirmPassword("");
+        setFpEmail(""); setOtp(["", "", "", "", "", ""]); setNewPassword(""); setConfirmPassword("");
         clearMessages();
       }, 1800);
     } catch (err) {
@@ -150,7 +151,7 @@ export default function Login() {
         )}
 
         {/* Messages */}
-        {error   && <div className="login-error">{error}</div>}
+        {error && <div className="login-error">{error}</div>}
         {success && <div className="login-success">{success}</div>}
 
         {/* ── LOGIN ── */}
@@ -187,6 +188,24 @@ export default function Login() {
                 {loading ? "Signing in…" : "Sign in"}
               </button>
             </form>
+            <GoogleLogin
+              onSuccess={async (res) => {
+                const {data}=await api.post("/login/google", {
+                  token: res.credential,
+                });
+                
+                if (data.role === "Admin") {
+                  navigate("/admin");
+                } else if (data.role === "Team Manager") {
+                  navigate("/manager");
+                } else {
+                  navigate("/employee");
+                }
+              }}
+              onError={() => {
+                console.log("Login failed");
+              }}
+            />
           </>
         )}
 
