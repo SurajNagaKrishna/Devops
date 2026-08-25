@@ -3,8 +3,7 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 
-router.get('/', (req, res) => {
-
+function clearSession(req, res) {
     res.clearCookie("token", {
         httpOnly: true,
         secure: false,
@@ -14,7 +13,9 @@ router.get('/', (req, res) => {
     return res.status(200).json({
         msg: "Logged Out Successfully"
     });
+}
 
-});
+router.get('/', clearSession);
+router.post('/', clearSession);
 
 module.exports = router;

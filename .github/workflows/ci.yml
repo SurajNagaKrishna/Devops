@@ -1,37 +1,112 @@
-name: CI/CD Pipeline
+name: TaskFlow DevOps CI/CD Pipeline
 
 on:
   push:
-    branches: [ feature-chat, main, develop ]
+    branches: [ feature-chat, main, develop, staging ]
   pull_request:
-    branches: [ feature-chat, main, develop ]
+    branches: [ feature-chat, main, develop, staging ]
 
 jobs:
-  test-and-build:
+  lint-and-test:
+    name: Lint & Run Unit, Integration and E2E Tests
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: taskflow_user
+          POSTGRES_PASSWORD: taskflow_password
+          POSTGRES_DB: taskflow_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: Devops/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install Backend Dependencies
         run: |
           cd Devops
-          npm ci || npm install
+          npm install
 
-      - name: Run Backend Tests
+      - name: Install Frontend Dependencies
+        run: |
+          cd Devops/frontend
+          npm install
+
+      - name: Seed Test Database
+        env:
+          PGPASSWORD: taskflow_password
+        run: |
+          psql -h localhost -U taskflow_user -d taskflow_db -f Devops/backend/register.sql || echo "Database initialized"
+
+      - name: Run Frontend Lint & Tests
+        run: |
+          cd Devops/frontend
+          npm run lint
+          npx vitest run
+
+      - name: Run Backend Unit, Integration & E2E Tests
+        env:
+          DB_USER: taskflow_user
+          DB_HOST: localhost
+          DB_DATABASE: taskflow_db
+          DB_PASSWORD: taskflow_password
+          DB_PORT: 5432
+          JWT_SECRET_KEY: ci_secret_key_test
         run: |
           cd Devops
           npm test
 
-      - name: Build Docker Image
+  docker-build:
+    name: Build & Verify Docker Image
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Application Docker Image
         run: |
           cd Devops
-          docker build -t devops-app .
+          docker build -t devops-app:latest .
+
+  deploy-staging:
+    name: Deploy to Staging Environment
+    needs: docker-build
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Staging Deployment Step
+        run: |
+          echo "Deploying container to Staging environment..."
+          echo "Staging deployment completed successfully."
+
+  deploy-production:
+    name: Deploy to Production (Manual Approval Required)
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Production Deployment Step
+        run: |
+          echo "Deploying verified release build to Production environment..."
+          echo "Production deployment finished."

@@ -1,7 +1,8 @@
 const db = require('./db');
 
-async function withTransaction(callback) {
-    const client = await db.connect();
+async function withTransaction(callback, customPool) {
+    const pool = customPool || db;
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const result = await callback(client);

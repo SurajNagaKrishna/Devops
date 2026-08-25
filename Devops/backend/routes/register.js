@@ -62,26 +62,29 @@ router.post('/', jwtauth, async (req, res) => {
             [Fname.trim(), lname.trim(), email.trim(), pass, role, normalizedPhone]
         );
 
-        const emp_id = result.rows[0].emp_id;
-
-        await db.query(
-            `INSERT INTO OTP(emp_id)
-             VALUES($1)`,
-            [emp_id]
-        );
+        if (result && result.rows && result.rows.length > 0) {
+            const emp_id = result.rows[0].emp_id;
+            await db.query(
+                `INSERT INTO OTP(emp_id)
+                 VALUES($1)`,
+                [emp_id]
+            );
+        }
 
         return res.status(201).json({
             message: "User Registered Successfully"
         });
 
     } catch (err) {
-
         console.error(err);
-
+        if (err.code === '23505') {
+            return res.status(409).json({
+                message: "An account with this email address already exists."
+            });
+        }
         return res.status(500).json({
             message: "Error Registering User"
         });
-
     }
 
 });
