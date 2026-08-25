@@ -40,11 +40,13 @@ app.get("/", (req, res) => {
     res.send("Backend is running successfully in Docker 🚀");
 });
 
+const PORT = process.env.PORT || 2000;
+
 function startServer() {
   db.query('SELECT NOW()')
     .then(() => console.log('DB Connected'))
     .catch(err => console.error('DB Error:', err));
-  return app.listen(2000, () => console.log('listening on 2000'));
+  return app.listen(PORT, () => console.log(`listening on ${PORT}`));
 }
 
 if (require.main === module) startServer();

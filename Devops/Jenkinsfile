@@ -8,9 +8,20 @@ pipeline {
             }
         }
 
+        stage('Install & Test') {
+            steps {
+                dir('Devops') {
+                    sh 'npm install'
+                    sh 'npm test'
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t devops-app .'
+                dir('Devops') {
+                    sh 'docker build -t devops-app .'
+                }
             }
         }
 
@@ -18,7 +29,7 @@ pipeline {
             steps {
                 sh '''
                     docker rm -f devops-app || true
-                    docker run -d --name devops-app -p 3000:3000 devops-app
+                    docker run -d --name devops-app -p 2000:2000 devops-app
                 '''
             }
         }

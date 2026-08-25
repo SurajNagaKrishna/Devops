@@ -1,0 +1,37 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ feature-chat, main, develop ]
+  pull_request:
+    branches: [ feature-chat, main, develop ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Devops/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd Devops
+          npm ci || npm install
+
+      - name: Run Backend Tests
+        run: |
+          cd Devops
+          npm test
+
+      - name: Build Docker Image
+        run: |
+          cd Devops
+          docker build -t devops-app .
