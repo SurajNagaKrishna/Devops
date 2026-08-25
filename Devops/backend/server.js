@@ -35,6 +35,9 @@ app.use('/forgotpassword',forgotpasswordroute)
 app.use('/getteams',getteams)
 app.use('/teammanager', manager)
 app.use('/employee',Employee)
+app.get("/", (req, res) => {
+    res.send("Backend is running successfully in Docker 🚀");
+});
 app.listen(2000, () => {
     console.log('listening on 2000')
 })
