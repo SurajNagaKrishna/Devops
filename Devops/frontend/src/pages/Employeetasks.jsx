@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import ErrorState from "../components/ErrorState";
 
 const PRIORITY_COLORS = {
   High:   { background: "#FEE2E2", color: "#DC2626" },
@@ -16,7 +17,11 @@ export default function EmployeeTasks() {
     setLoading(true); setError("");
     try {
       const { data } = await api.get("/employee/tasks");
-      const raw = data.tasks || [];
+      const raw = data.tasks;
+      if (!Array.isArray(raw)) {
+        setError("The task response was unexpected.");
+        return;
+      }
 
       // Group by task_id, exclude completed tasks from view
       const grouped = {};
@@ -47,13 +52,15 @@ export default function EmployeeTasks() {
       const active = Object.values(grouped).filter(t => t.status !== "Completed");
       setTasks(active);
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to load tasks.");
+      setError(apiErrorMessage(err, "Failed to load tasks."));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchTasks());
+  }, []);
 
   // Toggle subtask done/pending
   const handleToggleSubtask = async (task, sub) => {
@@ -70,7 +77,7 @@ export default function EmployeeTasks() {
         };
       }));
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to update subtask.");
+      setError(apiErrorMessage(err, "We couldn't update the subtask. Please try again."));
     }
   };
 
@@ -98,6 +105,8 @@ export default function EmployeeTasks() {
 
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /></div>
+      ) : error ? (
+        <ErrorState title="Unable to load your tasks" message={error} actionLabel="Try Again" onAction={fetchTasks} />
       ) : tasks.length === 0 ? (
         <div className="card">
           <div className="empty-state">

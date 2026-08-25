@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import ErrorState from "../components/ErrorState";
 
 export default function EmployeeInvitations() {
   const [invitations, setInvitations] = useState([]);
@@ -12,16 +13,19 @@ export default function EmployeeInvitations() {
     setLoading(true); setError("");
     try {
       const { data } = await api.get("/employee/invitations");
-      setInvitations(data.invitations || []);
+      if (!Array.isArray(data.invitations)) throw new Error("Malformed invitations response");
+      setInvitations(data.invitations);
     } catch (err) {
       if (err.response?.status === 404) setInvitations([]);
-      else setError(err.response?.data?.msg || "Failed to load invitations.");
+      else setError(apiErrorMessage(err, "Failed to load invitations."));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchInvitations(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchInvitations());
+  }, []);
 
   const handleAccept = async (id) => {
     setProcessing(id); setError(""); setSuccess("");
@@ -30,7 +34,7 @@ export default function EmployeeInvitations() {
       setSuccess("Invitation accepted! You've joined the team.");
       fetchInvitations();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to accept invitation.");
+      setError(apiErrorMessage(err, "We couldn't accept the invitation. Please try again."));
     } finally {
       setProcessing(null);
     }
@@ -43,7 +47,7 @@ export default function EmployeeInvitations() {
       setSuccess("Invitation rejected.");
       fetchInvitations();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to reject invitation.");
+      setError(apiErrorMessage(err, "We couldn't reject the invitation. Please try again."));
     } finally {
       setProcessing(null);
     }
@@ -83,6 +87,8 @@ export default function EmployeeInvitations() {
         <div className="table-wrap">
           {loading ? (
             <div className="spinner-wrap"><div className="spinner" /></div>
+          ) : error ? (
+            <ErrorState title="Unable to load invitations" message={error} actionLabel="Try Again" onAction={fetchInvitations} />
           ) : invitations.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">✉</div>

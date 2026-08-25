@@ -1,22 +1,38 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import ErrorState from "../components/ErrorState";
 
 export default function EmployeeTeam() {
   const [team,    setTeam]    = useState([]);
+  const [manager, setManager] = useState(null);
+  const [noTeam,  setNoTeam]  = useState(false);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
 
-  useEffect(() => {
+  const loadTeam = () => {
+    setLoading(true);
+    setError("");
     api.get("/employee/viewteam")
-      .then(({ data }) => setTeam(data.team || []))
+      .then(({ data }) => {
+        if (!Array.isArray(data.team) || !data.manager) throw new Error("Malformed team response");
+        setTeam(data.team);
+        setManager(data.manager);
+        setNoTeam(false);
+      })
       .catch(err => {
-        if (err.response?.status === 404) setTeam([]);
-        else setError(err.response?.data?.msg || "Failed to load team.");
+        if (err.response?.status === 404) {
+          setTeam([]);
+          setManager(null);
+          setNoTeam(true);
+        }
+        else setError(apiErrorMessage(err, "Failed to load team."));
       })
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const manager = team[0];
+  useEffect(() => {
+    void Promise.resolve().then(loadTeam);
+  }, []);
 
   return (
     <>
@@ -39,11 +55,11 @@ export default function EmployeeTeam() {
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 18, fontWeight: 700, flexShrink: 0
             }}>
-              {manager.manager_firstname?.[0]?.toUpperCase()}
+              {manager.firstname?.[0]?.toUpperCase()}
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 15 }}>
-                {manager.manager_firstname} {manager.manager_lastname}
+                {manager.firstname} {manager.lastname}
               </div>
               <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 2 }}>
                 Team Manager &nbsp;·&nbsp; {manager.team_name}
@@ -65,10 +81,17 @@ export default function EmployeeTeam() {
         <div className="table-wrap">
           {loading ? (
             <div className="spinner-wrap"><div className="spinner" /></div>
-          ) : team.length === 0 ? (
+          ) : error ? (
+            <ErrorState title="Unable to load your team" message={error} actionLabel="Try Again" onAction={loadTeam} />
+            ) : noTeam ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">◫</div>
+                <p>No team assigned yet. Check your invitations.</p>
+              </div>
+            ) : team.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">◫</div>
-              <p>No teammates yet. You may not have joined a team yet — check your invitations.</p>
+                <p>You are assigned to a team, but no other teammates are available yet.</p>
             </div>
           ) : (
             <table>

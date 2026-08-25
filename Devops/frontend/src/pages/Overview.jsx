@@ -1,17 +1,34 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import ErrorState from "../components/ErrorState";
 
 export default function Overview() {
   const navigate = useNavigate();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadTeams = () => {
+    setLoading(true);
+    setError("");
+    Promise.allSettled([api.get("/getteams")])
+      .then(([result]) => {
+        if (result.status === "rejected") {
+          setError(apiErrorMessage(result.reason, "Failed to load teams."));
+          return;
+        }
+        if (!Array.isArray(result.value.data.Teams)) {
+          setError("The teams response was unexpected.");
+          return;
+        }
+        setTeams(result.value.data.Teams);
+      })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    api.get("/getteams")
-      .then(({ data }) => setTeams(data.Teams || []))
-      .catch(() => setTeams([]))
-      .finally(() => setLoading(false));
+    void Promise.resolve().then(loadTeams);
   }, []);
 
   const totalTeams    = teams.length;
@@ -46,6 +63,8 @@ export default function Overview() {
         </div>
       </div>
 
+      {error && teams.length > 0 && <div className="error-msg">{error}</div>}
+
       {/* Recent teams */}
       <div className="card">
         <div className="card-header">
@@ -57,6 +76,8 @@ export default function Overview() {
         <div className="table-wrap">
           {loading ? (
             <div className="spinner-wrap"><div className="spinner" /></div>
+          ) : error ? (
+            <ErrorState title="Unable to load teams" message={error} actionLabel="Try Again" onAction={loadTeams} />
           ) : teams.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">◫</div>

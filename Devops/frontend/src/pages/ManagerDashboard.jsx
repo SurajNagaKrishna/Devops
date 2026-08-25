@@ -16,7 +16,8 @@ export default function ManagerDashboard() {
 
   const handleLogout = async () => {
     setLoggingOut(true);
-    try { await api.get("/logout"); } catch (_) {}
+    try { await api.get("/logout"); }
+    catch (error) { console.error("Logout failed", error); }
     navigate("/");
   };
 

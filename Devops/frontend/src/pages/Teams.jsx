@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
 
 export default function Teams() {
   const navigate = useNavigate();
@@ -31,16 +31,21 @@ export default function Teams() {
         api.get("/getteams"),
         api.get("/getteams/AvailableManagers"),
       ]);
-      setTeams(teamsRes.data.Teams || []);
-      setManagers(mgrsRes.data.Managers || []);
+      if (!Array.isArray(teamsRes.data.Teams) || !Array.isArray(mgrsRes.data.Managers)) {
+        throw new Error("Malformed teams response");
+      }
+      setTeams(teamsRes.data.Teams);
+      setManagers(mgrsRes.data.Managers);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load teams.");
+      setError(apiErrorMessage(err, "Failed to load teams."));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchAll());
+  }, []);
 
   // ── Change Manager ─────────────────────────────────────
   const openChangeModal = (team) => {
@@ -61,7 +66,7 @@ export default function Teams() {
       setChangeModal(false);
       fetchAll();
     } catch (err) {
-      setChangeError(err.response?.data?.message || "Failed to update manager.");
+      setChangeError(apiErrorMessage(err, "We couldn't update the team manager. Please try again."));
     } finally {
       setChangingMgr(false);
     }
@@ -82,7 +87,7 @@ export default function Teams() {
       setDeleteModal(false);
       fetchAll();
     } catch (err) {
-      setDeleteError(err.response?.data?.message || "Failed to delete team.");
+      setDeleteError(apiErrorMessage(err, "We couldn't delete the team. Please try again."));
     } finally {
       setDeleting(false);
     }

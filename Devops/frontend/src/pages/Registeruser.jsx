@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
 
 const ROLES = ["Admin", "Team Manager", "Employee"];
+
+function normalizeIndianPhone(value) {
+  const compact = value.replace(/[\s()-]/g, "");
+  const national = compact.startsWith("+91") ? compact.slice(3) : compact;
+  return /^[6-9]\d{9}$/.test(national) ? national : null;
+}
 
 export default function RegisterUser() {
   const navigate = useNavigate();
@@ -32,6 +38,7 @@ export default function RegisterUser() {
     if (!form.email.trim())            return "Email is required.";
     if (!form.role)                    return "Please select a role.";
     if (!form.phone.trim())            return "Phone number is required.";
+    if (!normalizeIndianPhone(form.phone.trim())) return "Enter a valid 10-digit Indian mobile number.";
     if (!form.password)                return "Password is required.";
     if (form.password.length < 6)      return "Password must be at least 6 characters.";
     if (form.password !== form.confirmPassword) return "Passwords do not match.";
@@ -44,6 +51,7 @@ export default function RegisterUser() {
 
     const err = validate();
     if (err) { setError(err); return; }
+    const normalizedPhone = normalizeIndianPhone(form.phone.trim());
 
     setLoading(true);
     try {
@@ -53,7 +61,7 @@ export default function RegisterUser() {
         email:    form.email.trim(),
         password: form.password,
         role:     form.role,
-        phone:    form.phone.trim(),
+        phone:    normalizedPhone,
       });
 
       setSuccess("User registered successfully!");
@@ -62,7 +70,7 @@ export default function RegisterUser() {
       setTimeout(() => navigate("/admin/teams"), 1500);
 
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to register user.");
+      setError(apiErrorMessage(err, "We couldn't create the account right now. Please try again later."));
     } finally {
       setLoading(false);
     }
@@ -149,6 +157,7 @@ export default function RegisterUser() {
                   name="phone"
                   type="tel"
                   placeholder="+91 9876543210"
+                  inputMode="tel"
                   value={form.phone}
                   onChange={handleChange}
                 />

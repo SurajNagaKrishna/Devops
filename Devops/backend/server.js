@@ -13,10 +13,8 @@ const forgotpasswordroute=require('./routes/resetpassword')
 const getteams=require('./routes/getteams')
 const manager=require('./routes/teammanager')
 const Employee=require('./routes/Employee')
-db.query('SELECT NOW()')
-    .then(() => console.log('DB Connected'))
-    .catch(err => console.error('DB Error:', err))
-    const cors = require("cors");
+const auth = require('./routes/auth')
+const cors = require("cors");
 
 // In your backend server.js
 app.use(cors({
@@ -30,6 +28,9 @@ app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 
 app.use('/register', registerRoute)
 app.use('/login', loginRoute)
+app.get('/auth/me', auth, (req, res) => {
+  return res.status(200).json({ user: req.user });
+})
 app.use('/logout',logoutroute)
 app.use('/forgotpassword',forgotpasswordroute)
 app.use('/getteams',getteams)
@@ -38,6 +39,14 @@ app.use('/employee',Employee)
 app.get("/", (req, res) => {
     res.send("Backend is running successfully in Docker 🚀");
 });
-app.listen(2000, () => {
-    console.log('listening on 2000')
-})
+
+function startServer() {
+  db.query('SELECT NOW()')
+    .then(() => console.log('DB Connected'))
+    .catch(err => console.error('DB Error:', err));
+  return app.listen(2000, () => console.log('listening on 2000'));
+}
+
+if (require.main === module) startServer();
+
+module.exports = { app, startServer };

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
 import "../styles/Login.css";
 
 // Steps: "login" | "sendotp" | "verifyotp" | "resetpassword"
@@ -45,7 +45,7 @@ export default function Login() {
         setError("Access denied. No dashboard available for your role.");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid credentials.");
+      setError(apiErrorMessage(err, "Invalid email or password. Please check your details and try again."));
     } finally {
       setLoading(false);
     }

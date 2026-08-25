@@ -30,9 +30,25 @@ function jwtauth(req, res, next) {
     }
 }
 
+function normalizeIndianPhone(value) {
+    const compact = String(value || '').replace(/[\s()-]/g, '');
+    const national = compact.startsWith('+91') ? compact.slice(3) : compact;
+    return /^[6-9]\d{9}$/.test(national) ? national : null;
+}
+
 router.post('/', jwtauth, async (req, res) => {
 
     const { Fname, lname, email, password, role, phone } = req.body;
+    const normalizedPhone = normalizeIndianPhone(phone);
+
+    if (!String(Fname || '').trim() || !String(lname || '').trim() ||
+        !String(email || '').trim() || !String(password || '') || !role || !normalizedPhone) {
+        return res.status(400).json({ message: "All fields are required and phone must be a valid 10-digit Indian number" });
+    }
+    if (String(Fname).trim().length > 50 || String(lname).trim().length > 50 ||
+        String(email).trim().length > 100 || String(role).length > 20) {
+        return res.status(400).json({ message: "One or more fields exceed the allowed length" });
+    }
 
     try {
 
@@ -43,7 +59,7 @@ router.post('/', jwtauth, async (req, res) => {
             (FirstName, LastName, Email, Password, Role, Phone)
             VALUES($1,$2,$3,$4,$5,$6)
             RETURNING *`,
-            [Fname, lname, email, pass, role, phone]
+            [Fname.trim(), lname.trim(), email.trim(), pass, role, normalizedPhone]
         );
 
         const emp_id = result.rows[0].emp_id;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import api from "../services/api";
 import "../styles/Dashboard.css";
@@ -18,7 +18,9 @@ export default function AdminDashboard() {
     setLoggingOut(true);
     try {
       await api.get("/logout");
-    } catch (_) {}
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
     navigate("/");
   };
 

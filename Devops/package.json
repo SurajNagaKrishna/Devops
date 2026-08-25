@@ -4,7 +4,8 @@
   "description": "TaskFlow is a full-stack project management and team collaboration platform where users can create projects, assign tasks, track progress, communicate through real-time chat, and manage team workflows efficiently. It includes authentication, task tracking, dashboards, and collaboration features to improve productivity.",
   "scripts": {
     "start": "node backend/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -30,6 +31,9 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "mock-require": "^3.0.3",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.1.4",
+    "vitest": "^4.1.11"
   }
 }

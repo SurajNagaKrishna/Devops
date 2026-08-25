@@ -5,7 +5,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   RadialBarChart, RadialBar, Legend
 } from "recharts";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import ErrorState from "../components/ErrorState";
+import NoTeamLanding from "../components/NoTeamLanding";
 
 const STATUS_COLORS = {
   Completed:    "#22C55E",
@@ -29,15 +31,32 @@ export default function ManagerOverview() {
   const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
+  const [noTeam,  setNoTeam]  = useState(false);
 
-  useEffect(() => {
+  const loadDashboard = () => {
+    setLoading(true);
+    setError("");
+    setNoTeam(false);
     Promise.allSettled([
       api.get("/teammanager/dashboard"),
       api.get("/teammanager/tasksdashboard"),
     ]).then(([statsRes, tasksRes]) => {
-      if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
+      if (statsRes.status === "rejected") {
+        if (statsRes.reason.response?.status === 404) setNoTeam(true);
+        else setError(apiErrorMessage(statsRes.reason, "Failed to load dashboard data."));
+      } else if (!statsRes.value.data || typeof statsRes.value.data !== "object" ||
+        ["teamMembers", "pendingInvitations", "totalTasks", "completedTasks", "pendingTasks", "inProgressTasks"]
+          .some(key => typeof statsRes.value.data[key] !== "number")) {
+        setError("The dashboard returned an unexpected response.");
+      } else {
+        setStats(statsRes.value.data);
+      }
       if (tasksRes.status === "fulfilled") {
         const raw = tasksRes.value.data.tasks || [];
+        if (!Array.isArray(raw)) {
+          setError("The task dashboard returned an unexpected response.");
+          return;
+        }
         // Deduplicate by task_id
         const seen = new Set();
         const deduped = [];
@@ -45,9 +64,15 @@ export default function ManagerOverview() {
           if (!seen.has(r.task_id)) { seen.add(r.task_id); deduped.push(r); }
         });
         setTasks(deduped);
+      } else if (tasksRes.reason.response?.status !== 404) {
+        setError(apiErrorMessage(tasksRes.reason, "Failed to load task data."));
       }
-    }).catch(() => setError("Failed to load dashboard data."))
+    })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    void Promise.resolve().then(loadDashboard);
   }, []);
 
   // ── Derived chart data ─────────────────────────────────
@@ -133,10 +158,19 @@ export default function ManagerOverview() {
         </div>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
+      {error && stats && <div className="error-msg">{error}</div>}
 
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /></div>
+      ) : noTeam ? (
+        <NoTeamLanding />
+      ) : !stats ? (
+        <ErrorState
+          title="Unable to load your dashboard"
+          message={error || "We couldn't retrieve your team dashboard."}
+          actionLabel="Try Again"
+          onAction={loadDashboard}
+        />
       ) : (
         <>
           {/* ── Stat Cards ── */}

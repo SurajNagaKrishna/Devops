@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
 
 export default function CreateTeam() {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export default function CreateTeam() {
         // Auto-select first manager if available
         if (mgrs.length > 0) setManagerId(String(mgrs[0].emp_id));
       })
-      .catch(() => setManagers([]))
+      .catch(err => setError(apiErrorMessage(err, "We couldn't load available managers. Please try again.")))
       .finally(() => setFetching(false));
   }, []);
 
@@ -41,7 +41,7 @@ export default function CreateTeam() {
       setSuccess("Team created successfully!");
       setTimeout(() => navigate("/admin/teams"), 1200);
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.msg || "Failed to create team.");
+      setError(apiErrorMessage(err, "We couldn't create the team right now. Please try again later."));
     } finally {
       setLoading(false);
     }

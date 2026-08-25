@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import NoTeamLanding from "../components/NoTeamLanding";
+import ErrorState from "../components/ErrorState";
 
 export default function ManagerTeam() {
   const [members,     setMembers]     = useState([]);
@@ -7,6 +9,7 @@ export default function ManagerTeam() {
   const [invitations, setInvitations] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState("");
+  const [noTeam,      setNoTeam]      = useState(false);
 
   // Invite modal
   const [inviteModal,   setInviteModal]   = useState(false);
@@ -25,6 +28,15 @@ export default function ManagerTeam() {
         api.get("/teammanager/invitations"),
       ]);
 
+      const failed = [membersRes, availRes, invRes]
+        .find(result => result.status === "rejected" && result.reason.response?.status !== 404);
+      if (failed) setError(apiErrorMessage(failed.reason, "Failed to load team data."));
+      if (membersRes.status === "rejected" && membersRes.reason.response?.status === 404) {
+        setNoTeam(true);
+      } else {
+        setNoTeam(false);
+      }
+
       setMembers(membersRes.status === "fulfilled"
         ? membersRes.value.data.team || [] : []);
       setAvailable(availRes.status === "fulfilled"
@@ -32,13 +44,15 @@ export default function ManagerTeam() {
       setInvitations(invRes.status === "fulfilled"
         ? invRes.value.data.invitations || [] : []);
     } catch (err) {
-      setError("Failed to load team data.");
+      setError(apiErrorMessage(err, "Failed to load team data."));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchAll());
+  }, []);
 
   // ── Invite ─────────────────────────────────────────────
   const handleInvite = async () => {
@@ -51,7 +65,7 @@ export default function ManagerTeam() {
       fetchAll();
       setTimeout(() => { setInviteModal(false); setInviteSuccess(""); }, 1200);
     } catch (err) {
-      setInviteError(err.response?.data?.msg || "Failed to send invitation.");
+      setInviteError(apiErrorMessage(err, "We couldn't send the invitation. Please try again."));
     } finally {
       setInviting(false);
     }
@@ -63,7 +77,7 @@ export default function ManagerTeam() {
       await api.delete(`/teammanager/invitation/${id}`);
       fetchAll();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to cancel invitation.");
+      setError(apiErrorMessage(err, "We couldn't cancel the invitation. Please try again."));
     }
   };
 
@@ -92,6 +106,10 @@ export default function ManagerTeam() {
 
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /></div>
+      ) : noTeam ? (
+        <NoTeamLanding />
+      ) : error ? (
+        <ErrorState title="Unable to load your team" message={error} actionLabel="Try Again" onAction={fetchAll} />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 

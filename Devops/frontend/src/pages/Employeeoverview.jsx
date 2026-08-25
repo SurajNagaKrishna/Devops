@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
 
 const COLORS = {
   Completed:    "#22C55E",
@@ -17,12 +17,33 @@ export default function EmployeeOverview() {
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
+  const [noTeam,  setNoTeam]  = useState(false);
 
   useEffect(() => {
     // Derive stats from tasks endpoint
-    api.get("/employee/tasks")
-      .then(({ data }) => {
-        const raw = data.tasks || [];
+    Promise.allSettled([
+      api.get("/employee/tasks"),
+      api.get("/employee/viewteam"),
+    ]).then(([tasksRes, teamRes]) => {
+      if (teamRes.status === "rejected" && teamRes.reason.response?.status === 404) {
+        setNoTeam(true);
+      } else if (teamRes.status === "rejected") {
+        setError(apiErrorMessage(teamRes.reason, "Failed to load team data."));
+      } else if (!Array.isArray(teamRes.value.data.team)) {
+        setError("The team response was unexpected.");
+      } else if (teamRes.value.data.team.length === 0) {
+        setNoTeam(true);
+      }
+      if (tasksRes.status === "rejected") {
+        setError(apiErrorMessage(tasksRes.reason, "Failed to load overview."));
+        return;
+      }
+      const data = tasksRes.value.data;
+      const raw = data?.tasks;
+      if (!Array.isArray(raw)) {
+        setError("The task response was unexpected.");
+        return;
+      }
 
         // Deduplicate by task_id
         const seen = new Set();
@@ -37,8 +58,7 @@ export default function EmployeeOverview() {
         const pending    = tasks.filter(t => t.status === "Pending").length;
 
         setStats({ total, completed, inProgress, pending });
-      })
-      .catch(err => setError(err.response?.data?.msg || "Failed to load overview."))
+    })
       .finally(() => setLoading(false));
   }, []);
 
@@ -73,7 +93,7 @@ export default function EmployeeOverview() {
         </button>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
+      {error && stats && <div className="error-msg">{error}</div>}
 
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /></div>
@@ -88,7 +108,14 @@ export default function EmployeeOverview() {
             ))}
           </div>
 
-          {stats?.total > 0 ? (
+          {noTeam ? (
+            <div className="card"><div className="empty-state">
+              <div className="empty-state-icon">◫</div>
+              <p>No team assigned yet. Check Invitations for a team request.</p>
+            </div></div>
+          ) : error && !stats ? (
+            <div className="card"><div className="empty-state"><p>{error}</p></div></div>
+          ) : stats?.total > 0 ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div className="card">
                 <div className="card-header"><h2>Task Status Breakdown</h2></div>

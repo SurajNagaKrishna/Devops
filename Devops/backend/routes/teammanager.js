@@ -3,6 +3,7 @@ const router = require('express').Router()  // ← capital R
 const db = require('../db')
 const jwt = require('jsonwebtoken')
 const auth = require('./auth')
+const withTransaction = require('../transaction')
 
 router.use(auth)
 
@@ -120,38 +121,30 @@ router.post('/invitetoteam', async (req, res) => {
             WHERE manager_id = $1
         `;
 
-        const r1 = await db.query(q1, [req.user.emp_id]);
-
-        if (r1.rowCount === 0) {
-            return res.status(404).json({
-                msg: "No Team Found"
-            });
-        }
-
-        const team_id = r1.rows[0].team_id;
-
-        // Check if invitation already exists
-        const check = await db.query(
-            `SELECT *
-             FROM TeamInvitations
-             WHERE team_id = $1
-             AND emp_id = $2
-             AND status = 'Pending'`,
-            [team_id, emp_id]
-        );
-
-        if (check.rowCount > 0) {
-            return res.status(400).json({
-                msg: "Invitation Already Sent"
-            });
-        }
-
-        // Send invitation
-        await db.query(
-            `INSERT INTO TeamInvitations(team_id, emp_id, invited_by)
-             VALUES($1, $2, $3)`,
-            [team_id, emp_id, req.user.emp_id]
-        );
+        await withTransaction(async (client) => {
+            const r1 = await client.query(q1, [req.user.emp_id]);
+            if (r1.rowCount === 0) {
+                const error = new Error('No Team Found');
+                error.status = 404;
+                throw error;
+            }
+            const team_id = r1.rows[0].team_id;
+            const check = await client.query(
+                `SELECT 1 FROM TeamInvitations
+                 WHERE team_id = $1 AND emp_id = $2 AND status = 'Pending'`,
+                [team_id, emp_id]
+            );
+            if (check.rowCount > 0) {
+                const error = new Error('Invitation Already Sent');
+                error.status = 400;
+                throw error;
+            }
+            await client.query(
+                `INSERT INTO TeamInvitations(team_id, emp_id, invited_by)
+                 VALUES($1, $2, $3)`,
+                [team_id, emp_id, req.user.emp_id]
+            );
+        });
 
         return res.status(201).json({
             msg: "Invitation Sent Successfully"
@@ -161,7 +154,7 @@ router.post('/invitetoteam', async (req, res) => {
 
         console.log(err);
 
-        return res.status(500).json({
+        return res.status(err.status || 500).json({
             msg: "Server Error"
         });
 
@@ -246,13 +239,13 @@ router.delete('/invitation/:id', async (req, res) => {
             });
         }
 
-        await db.query(
-            `
-            DELETE FROM TeamInvitations
-            WHERE invitation_id = $1
-            `,
-            [id]
-        );
+        await withTransaction(async (client) => {
+            await client.query(
+                `DELETE FROM TeamInvitations
+                 WHERE invitation_id = $1 AND invited_by = $2`,
+                [id, req.user.emp_id]
+            );
+        });
 
         return res.status(200).json({
             msg: "Invitation Cancelled Successfully"
@@ -296,16 +289,19 @@ router.get('/tasksdashboard', async (req, res) => {
             FROM Tasks t
             INNER JOIN TaskFlowUsers u
                 ON t.assigned_to = u.emp_id
+            INNER JOIN Teams team
+                ON team.team_id = t.team_id
             LEFT JOIN SubTasks s
                 ON t.task_id = s.task_id
             WHERE t.assigned_by = $1
+            AND team.manager_id = $1
             ORDER BY t.task_id, s.subtask_id;
         `;
 
         const result = await db.query(q, [req.user.emp_id]);
 
         if (result.rowCount === 0) {
-            return res.status(404).json({
+            return res.status(200).json({
                 msg: "No Tasks Found"
             });
         }
@@ -466,10 +462,12 @@ router.post('/createtasks', async (req, res) => {
 
         // Ensure employee belongs to manager's team
         const member = await db.query(
-            `SELECT *
-             FROM TeamMembers
-             WHERE team_id = $1
-             AND emp_id = $2`,
+            `SELECT tm.emp_id
+             FROM TeamMembers tm
+             INNER JOIN TaskFlowUsers u ON u.emp_id = tm.emp_id
+             WHERE tm.team_id = $1
+             AND tm.emp_id = $2
+             AND u.role = 'Employee'`,
             [team_id, assigned_to]
         );
 
@@ -530,11 +528,13 @@ router.put('/task/:task_id', async (req, res) => {
             status
         } = req.body;
 
-        const task = await db.query(
+           const task = await db.query(
             `SELECT *
-             FROM Tasks
-             WHERE task_id=$1
-             AND assigned_by=$2`,
+               FROM Tasks t
+               INNER JOIN Teams team ON team.team_id = t.team_id
+               WHERE t.task_id=$1
+               AND t.assigned_by=$2
+               AND team.manager_id=$2`,
             [task_id, req.user.emp_id]
         );
 
@@ -542,6 +542,17 @@ router.put('/task/:task_id', async (req, res) => {
             return res.status(404).json({
                 msg: "Task Not Found"
             });
+        }
+
+        const member = await db.query(
+            `SELECT 1 FROM TeamMembers tm
+             INNER JOIN TaskFlowUsers u ON u.emp_id = tm.emp_id
+             WHERE tm.team_id=$1 AND tm.emp_id=$2
+             AND u.role = 'Employee'`,
+            [task.rows[0].team_id, assigned_to]
+        );
+        if (member.rowCount === 0) {
+            return res.status(400).json({ msg: "Employee is not a member of your team" });
         }
 
         await db.query(
@@ -552,7 +563,7 @@ router.put('/task/:task_id', async (req, res) => {
                  priority=$4,
                  deadline=$5,
                  status=$6
-             WHERE task_id=$7`,
+             WHERE task_id=$7 AND assigned_by=$8`,
             [
                 assigned_to,
                 title,
@@ -560,7 +571,8 @@ router.put('/task/:task_id', async (req, res) => {
                 priority,
                 deadline,
                 status,
-                task_id
+                task_id,
+                req.user.emp_id
             ]
         );
 
@@ -592,10 +604,12 @@ router.delete('/task/:task_id', async (req, res) => {
         const { task_id } = req.params;
 
         const task = await db.query(
-            `SELECT *
-             FROM Tasks
-             WHERE task_id=$1
-             AND assigned_by=$2`,
+            `SELECT t.*
+             FROM Tasks t
+             INNER JOIN Teams team ON team.team_id = t.team_id
+             WHERE t.task_id=$1
+             AND t.assigned_by=$2
+             AND team.manager_id=$2`,
             [task_id, req.user.emp_id]
         );
 
@@ -607,8 +621,8 @@ router.delete('/task/:task_id', async (req, res) => {
 
         await db.query(
             `DELETE FROM Tasks
-             WHERE task_id=$1`,
-            [task_id]
+             WHERE task_id=$1 AND assigned_by=$2`,
+            [task_id, req.user.emp_id]
         );
 
         return res.status(200).json({
@@ -638,9 +652,16 @@ router.post('/addsubtask/:task_id', async (req, res) => {
 
         const { title } = req.body;
 
+        const task = await db.query(
+            `SELECT 1 FROM Tasks t
+             INNER JOIN Teams team ON team.team_id = t.team_id
+             WHERE t.task_id=$1 AND t.assigned_by=$2 AND team.manager_id=$2`,
+            [req.params.task_id, req.user.emp_id]
+        );
+        if (task.rowCount === 0) return res.status(404).json({ msg: "Task Not Found" });
+
         await db.query(
-            `INSERT INTO SubTasks(task_id, title)
-             VALUES($1, $2)`,
+            `INSERT INTO SubTasks(task_id, title) VALUES($1, $2)`,
             [req.params.task_id, title]
         );
 
@@ -676,8 +697,13 @@ router.put('/subtask/:subtask_id', async (req, res) => {
             `UPDATE SubTasks
              SET title = $1,
                  status = $2
-             WHERE subtask_id = $3`,
-            [title, status, subtask_id]
+             FROM Tasks t
+             INNER JOIN Teams team ON team.team_id = t.team_id
+             WHERE SubTasks.task_id = t.task_id
+             AND SubTasks.subtask_id = $3
+             AND t.assigned_by = $4
+             AND team.manager_id = $4`,
+            [title, status, subtask_id, req.user.emp_id]
         );
 
         if (result.rowCount === 0) {
@@ -714,9 +740,14 @@ router.delete('/subtask/:subtask_id', async (req, res) => {
         const { subtask_id } = req.params;
 
         const result = await db.query(
-            `DELETE FROM SubTasks
-             WHERE subtask_id = $1`,
-            [subtask_id]
+            `DELETE FROM SubTasks s
+             USING Tasks t, Teams team
+             WHERE s.task_id = t.task_id
+             AND t.team_id = team.team_id
+             AND s.subtask_id = $1
+             AND t.assigned_by = $2
+             AND team.manager_id = $2`,
+            [subtask_id, req.user.emp_id]
         );
 
         if (result.rowCount === 0) {

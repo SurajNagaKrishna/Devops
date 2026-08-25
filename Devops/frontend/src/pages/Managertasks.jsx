@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
+import api, { apiErrorMessage } from "../services/api";
+import NoTeamLanding from "../components/NoTeamLanding";
+import ErrorState from "../components/ErrorState";
 
 const PRIORITIES = ["Low", "Medium", "High"];
 const STATUSES   = ["Pending", "In Progress", "Completed"];
@@ -23,6 +25,7 @@ export default function ManagerTasks() {
   const [members,  setMembers]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
+  const [noTeam,   setNoTeam]   = useState(false);
 
   // Create task modal
   const [createModal,   setCreateModal]   = useState(false);
@@ -57,8 +60,19 @@ export default function ManagerTasks() {
         api.get("/teammanager/viewteam"),
       ]);
 
+      if (tasksRes.status === "rejected") {
+        setError(apiErrorMessage(tasksRes.reason, "Failed to load tasks."));
+      }
+      if (membersRes.status === "rejected" && membersRes.reason.response?.status !== 404) {
+        setError(apiErrorMessage(membersRes.reason, "Failed to load team members."));
+      }
+      setNoTeam(membersRes.status === "rejected" && membersRes.reason.response?.status === 404);
+
       const rawTasks = tasksRes.status === "fulfilled"
         ? tasksRes.value.data.tasks || [] : [];
+      if (tasksRes.status === "fulfilled" && !Array.isArray(rawTasks)) {
+        setError("The task dashboard returned an unexpected response.");
+      }
 
       // Group tasks with their subtasks
       const grouped = {};
@@ -89,7 +103,9 @@ export default function ManagerTasks() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchAll());
+  }, []);
 
   // ── Create Task ────────────────────────────────────────
   const handleCreate = async () => {
@@ -105,7 +121,7 @@ export default function ManagerTasks() {
       setTaskForm(emptyTask);
       fetchAll();
     } catch (err) {
-      setCreateError(err.response?.data?.msg || "Failed to create task.");
+      setCreateError(apiErrorMessage(err, "We couldn't create the task. Please try again."));
     } finally {
       setCreating(false);
     }
@@ -137,7 +153,7 @@ export default function ManagerTasks() {
       setEditModal(false);
       fetchAll();
     } catch (err) {
-      setEditError(err.response?.data?.msg || "Failed to update task.");
+      setEditError(apiErrorMessage(err, "We couldn't update the task. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -151,7 +167,7 @@ export default function ManagerTasks() {
       setDeleteModal(false);
       fetchAll();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to delete task.");
+      setError(apiErrorMessage(err, "We couldn't delete the task. Please try again."));
     } finally {
       setDeleting(false);
     }
@@ -181,7 +197,7 @@ export default function ManagerTasks() {
       }));
       setSubtaskTask(prev => ({ ...prev, subtasks: subs }));
     } catch (err) {
-      setSubtaskError(err.response?.data?.msg || "Failed to add subtask.");
+      setSubtaskError(apiErrorMessage(err, "We couldn't add the subtask. Please try again."));
     } finally {
       setAddingSubtask(false);
     }
@@ -200,7 +216,9 @@ export default function ManagerTasks() {
           s.subtask_id === sub.subtask_id ? { ...s, status: newStatus } : s
         )
       }));
-    } catch {}
+    } catch (err) {
+      setSubtaskError(apiErrorMessage(err, "We couldn't update the subtask. Please try again."));
+    }
   };
 
   const handleDeleteSubtask = async (sub) => {
@@ -211,7 +229,9 @@ export default function ManagerTasks() {
         ...prev,
         subtasks: prev.subtasks.filter(s => s.subtask_id !== sub.subtask_id)
       }));
-    } catch {}
+    } catch (err) {
+      setSubtaskError(apiErrorMessage(err, "We couldn't delete the subtask. Please try again."));
+    }
   };
 
   // ── Helpers ────────────────────────────────────────────
@@ -254,6 +274,10 @@ export default function ManagerTasks() {
         <div className="table-wrap">
           {loading ? (
             <div className="spinner-wrap"><div className="spinner" /></div>
+          ) : noTeam ? (
+            <NoTeamLanding />
+          ) : error ? (
+            <ErrorState title="Unable to load your tasks" message={error} actionLabel="Try Again" onAction={fetchAll} />
           ) : tasks.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">✓</div>
