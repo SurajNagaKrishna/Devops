@@ -157,7 +157,7 @@ export default function Login() {
         {step === "login" && (
           <>
             <h2 className="login-title">Welcome back</h2>
-            <p className="login-subtitle">Sign in to your admin account</p>
+            <p className="login-subtitle">Sign in to your TaskFlow account</p>
             <form onSubmit={handleLogin}>
               <div className="form-group">
                 <label>Email address</label>

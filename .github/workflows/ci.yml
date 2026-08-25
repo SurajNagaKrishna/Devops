@@ -1,4 +1,4 @@
-name: TaskFlow DevOps CI/CD Pipeline
+name: TaskFlow DevOps CI Pipeline
 
 on:
   push:
@@ -84,29 +84,3 @@ jobs:
         run: |
           cd Devops
           docker build -t devops-app:latest .
-
-  deploy-staging:
-    name: Deploy to Staging Environment
-    needs: docker-build
-    if: github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
-    environment: staging
-
-    steps:
-      - name: Staging Deployment Step
-        run: |
-          echo "Deploying container to Staging environment..."
-          echo "Staging deployment completed successfully."
-
-  deploy-production:
-    name: Deploy to Production (Manual Approval Required)
-    needs: deploy-staging
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Production Deployment Step
-        run: |
-          echo "Deploying verified release build to Production environment..."
-          echo "Production deployment finished."
