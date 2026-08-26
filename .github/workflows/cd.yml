@@ -2,12 +2,13 @@ name: TaskFlow DevOps CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
-    name: Deploy Application
-    runs-on: [self-hosted, macOS, ARM64]
+    name: Build, Run & Verify Application
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
@@ -30,8 +31,21 @@ jobs:
             -p 2000:2000 \
             devops-app:latest
 
+      - name: Wait for Application
+        run: |
+          sleep 10
+
       - name: Verify Deployment
         run: |
-          sleep 5
-          curl http://localhost:2000
-          
+          curl --fail http://localhost:2000
+
+      - name: Show Container Logs
+        if: always()
+        run: |
+          docker logs devops-container || true
+
+      - name: Stop Container
+        if: always()
+        run: |
+          docker stop devops-container || true
+          docker rm devops-container || true
