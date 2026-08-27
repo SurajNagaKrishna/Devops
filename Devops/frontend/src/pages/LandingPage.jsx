@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import Login from "./Login";
 import api from "../services/api";
 import "../styles/LandingPage.css";

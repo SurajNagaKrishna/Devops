@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
-import Login               from "./pages/Login";
 import LandingPage         from "./pages/LandingPage";
 import AdminDashboard      from "./pages/AdminDashboard";
 import Overview            from "./pages/Overview";
