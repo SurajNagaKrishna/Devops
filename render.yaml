@@ -4,9 +4,8 @@ services:
     runtime: node
     plan: free
     branch: main
-    rootDir: Devops
-    buildCommand: npm install && cd frontend && npm install && npm run build
-    startCommand: node backend/server.js
+    buildCommand: cd Devops && npm install && cd frontend && npm install && npm run build
+    startCommand: node Devops/backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
