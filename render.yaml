@@ -3,7 +3,7 @@ services:
     name: taskflow-app
     runtime: node
     plan: free
-    branch: feature-tasks
+    branch: main
     rootDir: Devops
     buildCommand: npm install && cd frontend && npm install && npm run build
     startCommand: node backend/server.js
