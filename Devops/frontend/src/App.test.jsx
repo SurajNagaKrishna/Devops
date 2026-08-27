@@ -12,6 +12,10 @@ vi.mock("./pages/Login", () => ({
   default: () => <div data-testid="login-page">Login page</div>,
 }));
 
+vi.mock("./pages/LandingPage", () => ({
+  default: () => <div data-testid="login-page">Landing page</div>,
+}));
+
 vi.mock("./pages/AdminDashboard", () => ({
   default: () => <div data-testid="admin-page">Admin dashboard</div>,
 }));

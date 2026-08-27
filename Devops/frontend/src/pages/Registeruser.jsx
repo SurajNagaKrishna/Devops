@@ -36,6 +36,7 @@ export default function RegisterUser() {
     if (!form.Fname.trim())            return "First name is required.";
     if (!form.lname.trim())            return "Last name is required.";
     if (!form.email.trim())            return "Email is required.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Enter a valid email address.";
     if (!form.role)                    return "Please select a role.";
     if (!form.phone.trim())            return "Phone number is required.";
     if (!normalizeIndianPhone(form.phone.trim())) return "Enter a valid 10-digit Indian mobile number.";

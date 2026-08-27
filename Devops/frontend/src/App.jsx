@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Login               from "./pages/Login";
+import LandingPage         from "./pages/LandingPage";
 import AdminDashboard      from "./pages/AdminDashboard";
 import Overview            from "./pages/Overview";
 import Teams               from "./pages/Teams";
@@ -56,11 +57,11 @@ function AuthenticatedLanding() {
   }, []);
 
   if (state.loading) return <div className="route-loading">Loading...</div>;
-  if (!state.user) return <Login />;
+  if (!state.user) return <LandingPage />;
   if (state.user.role === "Admin") return <Navigate to="/admin" replace />;
   if (state.user.role === "Team Manager") return <Navigate to="/manager" replace />;
   if (state.user.role === "Employee") return <Navigate to="/employee" replace />;
-  return <Login />;
+  return <LandingPage />;
 }
 
 export default function App() {

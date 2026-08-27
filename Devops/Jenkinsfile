@@ -18,7 +18,7 @@ pipeline {
             steps {
                 sh '''
                     docker rm -f devops-app || true
-                    docker run -d --name devops-app -p 3000:3000 devops-app
+                    docker run -d --name devops-app -p 2000:2000 devops-app
                 '''
             }
         }

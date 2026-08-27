@@ -16,9 +16,18 @@ const Employee = require('./routes/Employee')
 const auth = require('./routes/auth')
 const cors = require("cors");
 
-// In your backend server.js
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  : ["http://localhost:5173", "http://localhost:3000"];
+
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:3000"],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS policy violation: Origin not allowed"));
+    }
+  },
   credentials: true
 }));
 

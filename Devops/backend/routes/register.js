@@ -39,14 +39,24 @@ function normalizeIndianPhone(value) {
 router.post('/', jwtauth, async (req, res) => {
 
     const { Fname, lname, email, password, role, phone } = req.body;
-    const normalizedPhone = normalizeIndianPhone(phone);
 
     if (!String(Fname || '').trim() || !String(lname || '').trim() ||
-        !String(email || '').trim() || !String(password || '') || !role || !normalizedPhone) {
-        return res.status(400).json({ message: "All fields are required and phone must be a valid 10-digit Indian number" });
+        !String(email || '').trim() || !String(password || '') || !role || !String(phone || '').trim()) {
+        return res.status(400).json({ message: "All fields are required" });
     }
+
+    const trimmedEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return res.status(400).json({ message: "Enter a valid email address." });
+    }
+
+    const normalizedPhone = normalizeIndianPhone(phone);
+    if (!normalizedPhone) {
+        return res.status(400).json({ message: "Enter a valid 10-digit Indian mobile number." });
+    }
+
     if (String(Fname).trim().length > 50 || String(lname).trim().length > 50 ||
-        String(email).trim().length > 100 || String(role).length > 20) {
+        trimmedEmail.length > 100 || String(role).length > 20) {
         return res.status(400).json({ message: "One or more fields exceed the allowed length" });
     }
 
@@ -59,7 +69,7 @@ router.post('/', jwtauth, async (req, res) => {
             (FirstName, LastName, Email, Password, Role, Phone)
             VALUES($1,$2,$3,$4,$5,$6)
             RETURNING *`,
-            [Fname.trim(), lname.trim(), email.trim(), pass, role, normalizedPhone]
+            [Fname.trim(), lname.trim(), trimmedEmail, pass, role, normalizedPhone]
         );
 
         if (result && result.rows && result.rows.length > 0) {
@@ -78,6 +88,12 @@ router.post('/', jwtauth, async (req, res) => {
     } catch (err) {
         console.error(err);
         if (err.code === '23505') {
+            const detail = String(err.detail || err.message || err.constraint || '').toLowerCase();
+            if (detail.includes('phone')) {
+                return res.status(409).json({
+                    message: "An account with this phone number already exists."
+                });
+            }
             return res.status(409).json({
                 message: "An account with this email address already exists."
             });

@@ -25,9 +25,10 @@ router.post('/', async (req, res) => {
                     process.env.JWT_SECRET_KEY,
                     { expiresIn: '24h' }
                 );
+                const isSecure = process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true';
                 res.cookie("token", token, {
                     httpOnly: true,
-                    secure: false,
+                    secure: isSecure,
                     sameSite: 'lax',
                     maxAge: 24 * 60 * 60 * 1000
                 });
@@ -67,9 +68,10 @@ router.post('/google', async (req, res) => {
             process.env.JWT_SECRET_KEY,
             { expiresIn: "24h" }
         );
+        const isSecure = process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true';
         res.cookie("token", token, {
             httpOnly: true,
-            secure: false,
+            secure: isSecure,
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000
         });

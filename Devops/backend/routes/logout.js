@@ -4,9 +4,10 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 
 function clearSession(req, res) {
+    const isSecure = process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true';
     res.clearCookie("token", {
         httpOnly: true,
-        secure: false,
+        secure: isSecure,
         sameSite: "lax"
     });
 
