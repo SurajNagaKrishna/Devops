@@ -5,8 +5,9 @@ import api, { apiErrorMessage } from "../services/api";
 const ROLES = ["Admin", "Team Manager", "Employee"];
 
 function normalizeIndianPhone(value) {
-  const compact = value.replace(/[\s()-]/g, "");
-  const national = compact.startsWith("+91") ? compact.slice(3) : compact;
+  const compact = String(value || "").replace(/[\s()-]/g, "");
+  let national = compact.startsWith("+91") ? compact.slice(3) : compact;
+  if (national.startsWith("0")) national = national.slice(1);
   return /^[6-9]\d{9}$/.test(national) ? national : null;
 }
 
@@ -33,16 +34,36 @@ export default function RegisterUser() {
   };
 
   const validate = () => {
-    if (!form.Fname.trim())            return "First name is required.";
-    if (!form.lname.trim())            return "Last name is required.";
-    if (!form.email.trim())            return "Email is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Enter a valid email address.";
-    if (!form.role)                    return "Please select a role.";
-    if (!form.phone.trim())            return "Phone number is required.";
-    if (!normalizeIndianPhone(form.phone.trim())) return "Enter a valid 10-digit Indian mobile number.";
-    if (!form.password)                return "Password is required.";
-    if (form.password.length < 6)      return "Password must be at least 6 characters.";
+    const fname = form.Fname.trim();
+    const lname = form.lname.trim();
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+
+    if (!fname) return "First name is required.";
+    if (fname.length < 2 || fname.length > 50) return "First name must be between 2 and 50 characters.";
+    if (!/^[A-Za-z\s'-]+$/.test(fname)) return "First name can only contain letters, spaces, hyphens, and apostrophes.";
+
+    if (!lname) return "Last name is required.";
+    if (lname.length < 2 || lname.length > 50) return "Last name must be between 2 and 50 characters.";
+    if (!/^[A-Za-z\s'-]+$/.test(lname)) return "Last name can only contain letters, spaces, hyphens, and apostrophes.";
+
+    if (!email) return "Email is required.";
+    if (email.length > 100) return "Email address must not exceed 100 characters.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a valid email address.";
+
+    if (!form.role) return "Please select a role.";
+    if (!ROLES.includes(form.role)) return "Please select a valid role.";
+
+    if (!phone) return "Phone number is required.";
+    if (!normalizeIndianPhone(phone)) return "Enter a valid 10-digit Indian mobile number.";
+
+    if (!form.password) return "Password is required.";
+    if (form.password.length < 6) return "Password must be at least 6 characters.";
+    if (form.password.length > 128) return "Password must not exceed 128 characters.";
+
+    if (!form.confirmPassword) return "Confirm Password is required.";
     if (form.password !== form.confirmPassword) return "Passwords do not match.";
+
     return null;
   };
 

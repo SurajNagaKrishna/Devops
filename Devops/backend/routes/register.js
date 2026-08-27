@@ -30,9 +30,12 @@ function jwtauth(req, res, next) {
     }
 }
 
+const ALLOWED_ROLES = ["Admin", "Team Manager", "Employee"];
+
 function normalizeIndianPhone(value) {
     const compact = String(value || '').replace(/[\s()-]/g, '');
-    const national = compact.startsWith('+91') ? compact.slice(3) : compact;
+    let national = compact.startsWith('+91') ? compact.slice(3) : compact;
+    if (national.startsWith('0')) national = national.slice(1);
     return /^[6-9]\d{9}$/.test(national) ? national : null;
 }
 
@@ -40,24 +43,38 @@ router.post('/', jwtauth, async (req, res) => {
 
     const { Fname, lname, email, password, role, phone } = req.body;
 
-    if (!String(Fname || '').trim() || !String(lname || '').trim() ||
-        !String(email || '').trim() || !String(password || '') || !role || !String(phone || '').trim()) {
+    const trimmedFname = String(Fname || '').trim();
+    const trimmedLname = String(lname || '').trim();
+    const trimmedEmail = String(email || '').trim();
+    const trimmedPhone = String(phone || '').trim();
+
+    if (!trimmedFname || !trimmedLname || !trimmedEmail || !password || !role || !trimmedPhone) {
         return res.status(400).json({ message: "All fields are required" });
     }
 
-    const trimmedEmail = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    if (trimmedFname.length < 2 || trimmedFname.length > 50 || !/^[A-Za-z\s'-]+$/.test(trimmedFname)) {
+        return res.status(400).json({ message: "First name must be between 2 and 50 characters and contain valid characters." });
+    }
+
+    if (trimmedLname.length < 2 || trimmedLname.length > 50 || !/^[A-Za-z\s'-]+$/.test(trimmedLname)) {
+        return res.status(400).json({ message: "Last name must be between 2 and 50 characters and contain valid characters." });
+    }
+
+    if (trimmedEmail.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
         return res.status(400).json({ message: "Enter a valid email address." });
     }
 
-    const normalizedPhone = normalizeIndianPhone(phone);
+    if (!ALLOWED_ROLES.includes(role)) {
+        return res.status(400).json({ message: "Please select a valid role." });
+    }
+
+    const normalizedPhone = normalizeIndianPhone(trimmedPhone);
     if (!normalizedPhone) {
         return res.status(400).json({ message: "Enter a valid 10-digit Indian mobile number." });
     }
 
-    if (String(Fname).trim().length > 50 || String(lname).trim().length > 50 ||
-        trimmedEmail.length > 100 || String(role).length > 20) {
-        return res.status(400).json({ message: "One or more fields exceed the allowed length" });
+    if (String(password).length < 6 || String(password).length > 128) {
+        return res.status(400).json({ message: "Password must be between 6 and 128 characters." });
     }
 
     try {
