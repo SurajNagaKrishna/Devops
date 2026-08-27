@@ -35,7 +35,8 @@ app.use(express.json())
 app.use(cookieParser())
 
 const path = require('path');
-app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
 
 app.use('/register', registerRoute)
 app.use('/login', loginRoute)
@@ -50,8 +51,8 @@ app.use('/getteams', getteams)
 app.use('/teammanager', manager)
 app.use('/employee', Employee)
 
-app.get("/", (req, res) => {
-  res.send("Backend is running successfully in Docker 🚀");
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 const PORT = process.env.PORT || 2000;
