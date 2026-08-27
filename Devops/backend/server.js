@@ -18,11 +18,11 @@ const cors = require("cors");
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
-  : ["http://localhost:5173", "http://localhost:3000"];
+  : null;
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || !allowedOrigins || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("CORS policy violation: Origin not allowed"));
