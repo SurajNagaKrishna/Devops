@@ -51,7 +51,7 @@ app.use('/getteams', getteams)
 app.use('/teammanager', manager)
 app.use('/employee', Employee)
 
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
