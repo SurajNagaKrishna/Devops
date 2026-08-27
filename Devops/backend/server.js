@@ -51,8 +51,11 @@ app.use('/getteams', getteams)
 app.use('/teammanager', manager)
 app.use('/employee', Employee)
 
-app.use((req, res) => {
-  res.sendFile(path.join(frontendDist, 'index.html'));
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !path.extname(req.path)) {
+    return res.sendFile(path.join(frontendDist, 'index.html'));
+  }
+  next();
 });
 
 const PORT = process.env.PORT || 2000;
